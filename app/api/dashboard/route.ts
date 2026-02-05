@@ -29,7 +29,7 @@ export async function GET() {
       where: { state: { not: null } },
       _count: { state: true },
       orderBy: { _count: { state: "desc" } },
-      take: 10,
+      // No limit - return all states for heatmap
     }),
     prisma.member.findMany({
       select: {

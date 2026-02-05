@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import {
   Users,
   UserCheck,
   GraduationCap,
-  UserX,
   MessageSquare,
   Search,
   Plus,
@@ -26,6 +26,19 @@ import {
   Pie,
   Cell,
 } from "recharts";
+
+// Dynamic import for the map component (SSR disabled - uses browser APIs)
+const USHeatmap = dynamic(
+  () => import("@/components/ui/us-heatmap").then((mod) => mod.USHeatmap),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    ),
+  }
+);
 
 interface DashboardData {
   counts: {
@@ -259,7 +272,7 @@ export default function DashboardPage() {
 
       {/* Bottom Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Geographic Distribution */}
+        {/* Geographic Distribution - US Heatmap */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Geographic Distribution</CardTitle>
@@ -270,17 +283,7 @@ export default function DashboardPage() {
                 No location data yet
               </p>
             ) : (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart
-                  data={data.states}
-                  margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
-                >
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#C4A747" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <USHeatmap data={data.states} />
             )}
           </CardContent>
         </Card>
