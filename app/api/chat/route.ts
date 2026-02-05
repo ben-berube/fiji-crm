@@ -13,11 +13,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Semantic search for context
-    const embedding = await generateEmbedding(message);
-    const embeddingStr = `[${embedding.join(",")}]`;
+    // Check if any members have embeddings
+    const embeddingCount = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+      `SELECT COUNT(*) as count FROM "Member" WHERE embedding IS NOT NULL`
+    );
+    const hasEmbeddings = Number(embeddingCount[0]?.count || 0) > 0;
 
-    const results: Array<{
+    let results: Array<{
       firstName: string;
       lastName: string;
       email: string;
@@ -31,31 +33,68 @@ export async function POST(req: NextRequest) {
       jobTitle: string | null;
       industry: string | null;
       bio: string | null;
-      similarity: number;
-    }> = await prisma.$queryRawUnsafe(
-      `
-      SELECT
-        m."firstName",
-        m."lastName",
-        m.email,
-        m.phone,
-        m.city,
-        m.state,
-        m."graduationYear",
-        m.major,
-        m.status,
-        m.company,
-        m."jobTitle",
-        m.industry,
-        m.bio,
-        1 - (m.embedding <=> $1::vector) as similarity
-      FROM "Member" m
-      WHERE m.embedding IS NOT NULL
-      ORDER BY m.embedding <=> $1::vector
-      LIMIT 10
-      `,
-      embeddingStr
-    );
+    }> = [];
+
+    if (hasEmbeddings) {
+      // Semantic search for context
+      const embedding = await generateEmbedding(message);
+      const embeddingStr = `[${embedding.join(",")}]`;
+
+      results = await prisma.$queryRawUnsafe(
+        `
+        SELECT
+          m."firstName",
+          m."lastName",
+          m.email,
+          m.phone,
+          m.city,
+          m.state,
+          m."graduationYear",
+          m.major,
+          m.status,
+          m.company,
+          m."jobTitle",
+          m.industry,
+          m.bio
+        FROM "Member" m
+        WHERE m.embedding IS NOT NULL
+        ORDER BY m.embedding <=> $1::vector
+        LIMIT 10
+        `,
+        embeddingStr
+      );
+    } else {
+      // Fallback: simple text search on name, city, state, industry
+      const searchTerm = `%${message.toLowerCase()}%`;
+      results = await prisma.$queryRawUnsafe(
+        `
+        SELECT
+          m."firstName",
+          m."lastName",
+          m.email,
+          m.phone,
+          m.city,
+          m.state,
+          m."graduationYear",
+          m.major,
+          m.status,
+          m.company,
+          m."jobTitle",
+          m.industry,
+          m.bio
+        FROM "Member" m
+        WHERE 
+          LOWER(m."firstName") LIKE $1 OR
+          LOWER(m."lastName") LIKE $1 OR
+          LOWER(COALESCE(m.city, '')) LIKE $1 OR
+          LOWER(COALESCE(m.state, '')) LIKE $1 OR
+          LOWER(COALESCE(m.industry, '')) LIKE $1 OR
+          LOWER(COALESCE(m.company, '')) LIKE $1
+        LIMIT 15
+        `,
+        searchTerm
+      );
+    }
 
     // Build context from results
     const context = results
@@ -84,9 +123,9 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are the FIJI CRM assistant for the University of San Diego Phi Gamma Delta chapter. You help brothers find and connect with other brothers in the fraternity.
 
-You have access to a directory of ${totalCount} brothers. Based on the user's question, here are the most relevant brothers from a semantic search:
+You have access to a directory of ${totalCount} brothers. Based on the user's question, here are the most relevant brothers from the directory:
 
-${context}
+${context || "No matching brothers found for this query."}
 
 Guidelines:
 - Be helpful, warm, and brotherly in tone
