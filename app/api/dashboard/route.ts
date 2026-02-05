@@ -52,11 +52,11 @@ export async function GET() {
       alumni: alumniMembers,
       inactive: inactiveMembers,
     },
-    industries: industries.map((i) => ({
+    industries: industries.map((i: { industry: string | null; _count: { industry: number } }) => ({
       name: i.industry ?? "Unknown",
       count: i._count.industry,
     })),
-    states: states.map((s) => ({
+    states: states.map((s: { state: string | null; _count: { state: number } }) => ({
       name: s.state ?? "Unknown",
       count: s._count.state,
     })),
