@@ -75,7 +75,7 @@ model Member {
   industry       String?
   linkedIn       String?
   bio            String?
-  embedding      Unsupported("vector(1536)")?
+  embedding      Unsupported("vector(768)")?
   tags           Tag[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

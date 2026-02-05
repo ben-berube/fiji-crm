@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { openai, generateEmbedding } from "@/lib/openai";
+import { generateEmbedding, streamChat } from "@/lib/gemini";
 
 // POST /api/chat - AI chatbot with semantic search context
 export async function POST(req: NextRequest) {
@@ -137,34 +137,28 @@ Guidelines:
 - Keep responses concise but informative
 - Use the FIJI motto "Not Merely for College Days Alone" when appropriate`;
 
-    const messages = [
-      { role: "system" as const, content: systemPrompt },
-      ...history.map((h: { role: string; content: string }) => ({
-        role: h.role as "user" | "assistant",
-        content: h.content,
-      })),
-      { role: "user" as const, content: message },
-    ];
+    // Format history for Gemini
+    const chatHistory = history.map((h: { role: string; content: string }) => ({
+      role: h.role as "user" | "assistant",
+      content: h.content,
+    }));
 
-    const stream = await openai.client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-
-    // Create a ReadableStream
+    // Create a ReadableStream using Gemini
     const encoder = new TextEncoder();
     const readableStream = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const text = chunk.choices[0]?.delta?.content || "";
-          if (text) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+        try {
+          for await (const text of streamChat(systemPrompt, chatHistory, message)) {
+            if (text) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+            }
           }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: "Sorry, I encountered an error. Please try again." })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       },
     });
