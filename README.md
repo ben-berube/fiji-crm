@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FIJI CRM - USD Phi Gamma Delta
+
+A chapter management and alumni relations CRM for the University of San Diego Phi Gamma Delta chapter.
+
+## Features
+
+- **Google OAuth Sign-in** - Brothers sign in with their Google accounts
+- **Member Directory** - Search and filter brothers by name, industry, location, graduation year
+- **AI-Powered Search** - Natural language chatbot to find brothers ("Who works in tech in SF?")
+- **Mass Texting** - Send SMS to groups of brothers via Twilio with reusable templates
+- **Dashboard** - Chapter stats, industry/geographic distribution charts
+- **Role-based Access** - Admin, Officer, and Member roles
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router) + TypeScript
+- **Database**: PostgreSQL with pgvector extension (Vercel Postgres)
+- **ORM**: Prisma
+- **Auth**: NextAuth.js v5 with Google OAuth
+- **AI**: OpenAI (text-embedding-3-small + GPT-4o-mini)
+- **SMS**: Twilio
+- **UI**: Tailwind CSS + shadcn/ui + Recharts
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 18+
+- PostgreSQL with pgvector extension
+- Google OAuth credentials
+- OpenAI API key
+- Twilio account (for SMS features)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Copy `.env.local` and fill in your credentials:
+   ```
+   DATABASE_URL="postgresql://..."
+   NEXTAUTH_SECRET="generate-a-secret"
+   NEXTAUTH_URL="http://localhost:3000"
+   GOOGLE_CLIENT_ID="..."
+   GOOGLE_CLIENT_SECRET="..."
+   OPENAI_API_KEY="sk-..."
+   TWILIO_ACCOUNT_SID="..."
+   TWILIO_AUTH_TOKEN="..."
+   TWILIO_PHONE_NUMBER="+1..."
+   ```
 
-## Learn More
+3. Enable pgvector in your database:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Run Prisma migrations:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+6. Open [http://localhost:3000](http://localhost:3000)
 
-## Deploy on Vercel
+### Deploying to Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push your code to a GitHub repo
+2. Connect the repo to Vercel
+3. Add a Vercel Postgres database (enables pgvector)
+4. Set all environment variables in Vercel dashboard
+5. Deploy!
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## FIJI Colors
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Royal Purple | `#3D1F6F` | Primary color |
+| Purple Light | `#5B3A8C` | Hover states |
+| Purple Dark | `#2A1050` | Active states |
+| Gold | `#C4A747` | Accent/highlights |
+
+---
+
+*Not Merely for College Days Alone*
