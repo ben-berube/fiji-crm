@@ -107,7 +107,7 @@ Guidelines:
       { role: "user" as const, content: message },
     ];
 
-    const stream = await openai.chat.completions.create({
+    const stream = await openai.client.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
       stream: true,
