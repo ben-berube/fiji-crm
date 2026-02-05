@@ -26,9 +26,9 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    industries: industries.map((i) => i.industry).filter(Boolean),
-    states: states.map((s) => s.state).filter(Boolean),
-    years: years.map((y) => y.graduationYear).filter(Boolean),
-    tags: tags.map((t) => t.name),
+    industries: industries.map((i: { industry: string | null }) => i.industry).filter(Boolean),
+    states: states.map((s: { state: string | null }) => s.state).filter(Boolean),
+    years: years.map((y: { graduationYear: number | null }) => y.graduationYear).filter(Boolean),
+    tags: tags.map((t: { name: string }) => t.name),
   });
 }
