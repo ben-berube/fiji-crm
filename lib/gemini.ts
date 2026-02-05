@@ -30,26 +30,31 @@ export async function* streamChat(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
   userMessage: string
 ): AsyncGenerator<string> {
-  const model = getGemini().getGenerativeModel({ model: "gemini-1.5-flash" });
+  try {
+    const genai = getGemini();
+    const model = genai.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: systemPrompt,
+    });
 
-  // Build chat history
-  const history = messages.map((m) => ({
-    role: m.role === "user" ? "user" : "model",
-    parts: [{ text: m.content }],
-  }));
+    // Build chat history in Gemini format
+    const history = messages.map((m) => ({
+      role: m.role === "user" ? ("user" as const) : ("model" as const),
+      parts: [{ text: m.content }],
+    }));
 
-  const chat = model.startChat({
-    history,
-    systemInstruction: systemPrompt,
-  });
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessageStream(userMessage);
 
-  const result = await chat.sendMessageStream(userMessage);
-
-  for await (const chunk of result.stream) {
-    const text = chunk.text();
-    if (text) {
-      yield text;
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) {
+        yield text;
+      }
     }
+  } catch (error) {
+    console.error("Gemini chat error:", error);
+    throw error;
   }
 }
 

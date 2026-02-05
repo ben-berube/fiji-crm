@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateEmbedding, streamChat } from "@/lib/gemini";
 
+export const maxDuration = 60; // Allow up to 60 seconds for streaming
+
 // POST /api/chat - AI chatbot with semantic search context
 export async function POST(req: NextRequest) {
   const { message, history = [] } = await req.json();
@@ -155,8 +157,9 @@ Guidelines:
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
-          console.error("Stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: "Sorry, I encountered an error. Please try again." })}\n\n`));
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.error("Stream error:", errorMsg, err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: `Sorry, I encountered an error: ${errorMsg}` })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         }
         controller.close();
