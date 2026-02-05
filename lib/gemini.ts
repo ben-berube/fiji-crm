@@ -14,9 +14,15 @@ function getGemini(): GoogleGenerativeAI {
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const model = getGemini().getGenerativeModel({ model: "text-embedding-004" });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  try {
+    const genai = getGemini();
+    const model = genai.getGenerativeModel({ model: "text-embedding-004" });
+    const result = await model.embedContent(text);
+    return result.embedding.values;
+  } catch (error) {
+    console.error("Gemini embedding error:", error);
+    throw error;
+  }
 }
 
 export async function* streamChat(

@@ -46,8 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ updated, errors, total: members.length });
   } catch (error) {
     console.error("Embedding generation error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to generate embeddings" },
+      { error: "Failed to generate embeddings", details: errorMessage },
       { status: 500 }
     );
   }
