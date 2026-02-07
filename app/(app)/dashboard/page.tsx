@@ -249,44 +249,46 @@ export default function DashboardPage() {
                 No members yet
               </p>
             ) : (
-              <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={isMobile ? 40 : 60}
-                      outerRadius={isMobile ? 70 : 100}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={isMobile ? false : ({ name, value }) => `${name}: ${value}`}
-                    >
-                      {statusData.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={CHART_COLORS[index % CHART_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Mobile legend for pie chart */}
-              {isMobile && statusData.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
-                  {statusData.map((item, index) => (
-                    <div key={item.name} className="flex items-center gap-1.5 text-xs">
-                      <div
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                      />
-                      <span>{item.name}: {item.value}</span>
-                    </div>
-                  ))}
+              <>
+                <div className="flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={isMobile ? 40 : 60}
+                        outerRadius={isMobile ? 70 : 100}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={isMobile ? false : ({ name, value }) => `${name}: ${value}`}
+                      >
+                        {statusData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              )}
+                {/* Mobile legend for pie chart */}
+                {isMobile && statusData.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-3 mt-2">
+                    {statusData.map((item, index) => (
+                      <div key={item.name} className="flex items-center gap-1.5 text-xs">
+                        <div
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                        />
+                        <span>{item.name}: {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
