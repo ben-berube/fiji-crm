@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { indexMember } from "@/lib/member-indexing";
 
 // GET /api/members/[id]
 export async function GET(
@@ -79,6 +80,11 @@ export async function PUT(
     },
     include: { tags: true },
   });
+
+  // Fire-and-forget: re-index the updated member (refresh embedding + maybe infer industry)
+  indexMember(member.id).catch((err) =>
+    console.error("Background re-indexing failed for member:", err)
+  );
 
   return NextResponse.json(member);
 }

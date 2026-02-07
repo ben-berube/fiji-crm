@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parse } from "csv-parse/sync";
+import { indexMembers } from "@/lib/member-indexing";
 
 // Flexible header mapping: lowercased/trimmed header -> Member field
 const HEADER_MAP: Record<string, string> = {
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const importedMemberIds: string[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest) {
 
       try {
         // Upsert by email
-        await prisma.member.upsert({
+        const member = await prisma.member.upsert({
           where: { email: record.email },
           update: {
             firstName: record.firstName,
@@ -223,6 +225,7 @@ export async function POST(req: NextRequest) {
               : undefined,
           },
         });
+        importedMemberIds.push(member.id);
         imported++;
       } catch (err) {
         const msg =
@@ -232,10 +235,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Fire-and-forget: auto-index all imported members in background
+    if (importedMemberIds.length > 0) {
+      indexMembers(importedMemberIds).catch((err) =>
+        console.error("Background indexing of imported members failed:", err)
+      );
+    }
+
     return NextResponse.json({
       imported,
       skipped,
       total: dataRows.length,
+      indexing: importedMemberIds.length,
       errors: errors.slice(0, 20), // Cap error list
     });
   } catch (error) {

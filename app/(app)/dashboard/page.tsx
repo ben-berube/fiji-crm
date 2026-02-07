@@ -47,7 +47,7 @@ interface DashboardData {
     alumni: number;
     inactive: number;
   };
-  industries: { name: string; count: number }[];
+  companies: { name: string; count: number }[];
   states: { name: string; count: number }[];
   recentMembers: {
     id: string;
@@ -75,6 +75,14 @@ const CHART_COLORS = [
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -105,7 +113,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
@@ -115,14 +123,14 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <Link href="/chat">
             <Button variant="outline" size="sm">
-              <Search className="mr-2 h-4 w-4" />
-              AI Search
+              <Search className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">AI Search</span>
             </Button>
           </Link>
           <Link href="/directory">
             <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Brother
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add Brother</span>
             </Button>
           </Link>
         </div>
@@ -198,29 +206,29 @@ export default function DashboardPage() {
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Industry Distribution */}
+        {/* Company Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Industry Distribution</CardTitle>
+            <CardTitle className="text-lg">Top Companies</CardTitle>
           </CardHeader>
           <CardContent>
-            {data.industries.length === 0 ? (
+            {data.companies.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
-                No industry data yet
+                No company data yet
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={data.industries}
+                  data={data.companies}
                   layout="vertical"
-                  margin={{ left: 20, right: 20, top: 5, bottom: 5 }}
+                  margin={{ left: isMobile ? 0 : 20, right: 10, top: 5, bottom: 5 }}
                 >
                   <XAxis type="number" />
                   <YAxis
                     dataKey="name"
                     type="category"
-                    width={120}
-                    tick={{ fontSize: 12 }}
+                    width={isMobile ? 80 : 120}
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
                   />
                   <Tooltip />
                   <Bar dataKey="count" fill="#3D1F6F" radius={[0, 4, 4, 0]} />
@@ -242,17 +250,17 @@ export default function DashboardPage() {
               </p>
             ) : (
               <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
                   <PieChart>
                     <Pie
                       data={statusData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
+                      innerRadius={isMobile ? 40 : 60}
+                      outerRadius={isMobile ? 70 : 100}
                       paddingAngle={5}
                       dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
+                      label={isMobile ? false : ({ name, value }) => `${name}: ${value}`}
                     >
                       {statusData.map((_, index) => (
                         <Cell
@@ -265,6 +273,20 @@ export default function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+              {/* Mobile legend for pie chart */}
+              {isMobile && statusData.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                  {statusData.map((item, index) => (
+                    <div key={item.name} className="flex items-center gap-1.5 text-xs">
+                      <div
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                      />
+                      <span>{item.name}: {item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             )}
           </CardContent>
         </Card>

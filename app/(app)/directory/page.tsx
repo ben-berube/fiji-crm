@@ -43,6 +43,7 @@ interface Member {
   state?: string | null;
   graduationYear?: number | null;
   tags: { id: string; name: string }[];
+  isIndexed?: boolean;
 }
 
 interface Filters {
@@ -56,6 +57,7 @@ interface ImportResult {
   imported: number;
   skipped: number;
   total: number;
+  indexing?: number;
   errors: string[];
 }
 
@@ -173,19 +175,19 @@ export default function DirectoryPage() {
               setImportOpen(true);
             }}
           >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Import from Sheets
+            <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Import from Sheets</span>
           </Button>
           <Button onClick={() => setFormOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Brother
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Brother</span>
           </Button>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="space-y-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, company, job title..."
@@ -197,80 +199,82 @@ export default function DirectoryPage() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v === "ALL" ? "" : v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Status</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="ALUMNI">Alumni</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={industryFilter}
-          onValueChange={(v) => {
-            setIndustryFilter(v === "ALL" ? "" : v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Industry" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Industries</SelectItem>
-            {filters.industries.map((i) => (
-              <SelectItem key={i} value={i}>
-                {i}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={stateFilter}
-          onValueChange={(v) => {
-            setStateFilter(v === "ALL" ? "" : v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="State" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All States</SelectItem>
-            {filters.states.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={yearFilter}
-          onValueChange={(v) => {
-            setYearFilter(v === "ALL" ? "" : v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Year" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Years</SelectItem>
-            {filters.years.map((y) => (
-              <SelectItem key={y} value={y.toString()}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3">
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v === "ALL" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="ALUMNI">Alumni</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={industryFilter}
+            onValueChange={(v) => {
+              setIndustryFilter(v === "ALL" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Industry" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Industries</SelectItem>
+              {filters.industries.map((i) => (
+                <SelectItem key={i} value={i}>
+                  {i}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={stateFilter}
+            onValueChange={(v) => {
+              setStateFilter(v === "ALL" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectValue placeholder="State" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All States</SelectItem>
+              {filters.states.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={yearFilter}
+            onValueChange={(v) => {
+              setYearFilter(v === "ALL" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Years</SelectItem>
+              {filters.years.map((y) => (
+                <SelectItem key={y} value={y.toString()}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Members Grid */}
@@ -410,6 +414,11 @@ export default function DirectoryPage() {
                   </p>
                   {importResult.skipped > 0 && (
                     <p>Skipped: {importResult.skipped}</p>
+                  )}
+                  {importResult.indexing && importResult.indexing > 0 && (
+                    <p className="text-amber-600">
+                      Indexing {importResult.indexing} members for AI search...
+                    </p>
                   )}
                 </div>
                 {importResult.errors.length > 0 && (

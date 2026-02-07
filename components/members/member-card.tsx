@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MapPin, Briefcase, GraduationCap } from "lucide-react";
+import { MapPin, Briefcase, GraduationCap, Loader2 } from "lucide-react";
 
 interface MemberCardProps {
   member: {
@@ -20,6 +20,7 @@ interface MemberCardProps {
     state?: string | null;
     graduationYear?: number | null;
     tags: { id: string; name: string }[];
+    isIndexed?: boolean;
   };
 }
 
@@ -49,6 +50,12 @@ export function MemberCard({ member }: MemberCardProps) {
                 <Badge variant="secondary" className={statusColor}>
                   {member.status.charAt(0) + member.status.slice(1).toLowerCase()}
                 </Badge>
+                {member.isIndexed === false && (
+                  <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50 gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Indexing
+                  </Badge>
+                )}
               </div>
 
               {(member.jobTitle || member.company) && (

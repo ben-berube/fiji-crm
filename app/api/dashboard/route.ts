@@ -8,7 +8,7 @@ export async function GET() {
     activeMembers,
     alumniMembers,
     inactiveMembers,
-    industries,
+    companies,
     states,
     recentMembers,
     messageCount,
@@ -18,10 +18,10 @@ export async function GET() {
     prisma.member.count({ where: { status: "ALUMNI" } }),
     prisma.member.count({ where: { status: "INACTIVE" } }),
     prisma.member.groupBy({
-      by: ["industry"],
-      where: { industry: { not: null } },
-      _count: { industry: true },
-      orderBy: { _count: { industry: "desc" } },
+      by: ["company"],
+      where: { company: { not: null } },
+      _count: { company: true },
+      orderBy: { _count: { company: "desc" } },
       take: 10,
     }),
     prisma.member.groupBy({
@@ -52,9 +52,9 @@ export async function GET() {
       alumni: alumniMembers,
       inactive: inactiveMembers,
     },
-    industries: industries.map((i: { industry: string | null; _count: { industry: number } }) => ({
-      name: i.industry ?? "Unknown",
-      count: i._count.industry,
+    companies: companies.map((i: { company: string | null; _count: { company: number } }) => ({
+      name: i.company ?? "Unknown",
+      count: i._count.company,
     })),
     states: states.map((s: { state: string | null; _count: { state: number } }) => ({
       name: s.state ?? "Unknown",

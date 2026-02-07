@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { indexMember, getIndexedMemberIds } from "@/lib/member-indexing";
 
 // GET /api/members - List all members with optional filters
 export async function GET(req: NextRequest) {
@@ -52,8 +53,17 @@ export async function GET(req: NextRequest) {
     prisma.member.count({ where }),
   ]);
 
+  // Annotate members with embedding/indexing status
+  const memberIds = members.map((m) => m.id);
+  const indexedIds = await getIndexedMemberIds(memberIds);
+
+  const membersWithStatus = members.map((m) => ({
+    ...m,
+    isIndexed: indexedIds.has(m.id),
+  }));
+
   return NextResponse.json({
-    members,
+    members: membersWithStatus,
     total,
     page,
     totalPages: Math.ceil(total / limit),
@@ -120,5 +130,10 @@ export async function POST(req: NextRequest) {
     include: { tags: true },
   });
 
-  return NextResponse.json(member, { status: 201 });
+  // Fire-and-forget: auto-index the new member (generate embedding + infer industry)
+  indexMember(member.id).catch((err) =>
+    console.error("Background indexing failed for new member:", err)
+  );
+
+  return NextResponse.json({ ...member, isIndexed: false }, { status: 201 });
 }

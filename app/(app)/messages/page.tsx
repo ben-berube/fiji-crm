@@ -184,10 +184,10 @@ export default function MessagesPage() {
       </div>
 
       <Tabs defaultValue="compose">
-        <TabsList>
-          <TabsTrigger value="compose">Compose</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="compose" className="flex-1 sm:flex-initial">Compose</TabsTrigger>
+          <TabsTrigger value="templates" className="flex-1 sm:flex-initial">Templates</TabsTrigger>
+          <TabsTrigger value="history" className="flex-1 sm:flex-initial">History</TabsTrigger>
         </TabsList>
 
         {/* Compose Tab */}
@@ -196,7 +196,7 @@ export default function MessagesPage() {
             {/* Recipients */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-lg">Recipients</CardTitle>
                   <div className="flex gap-2">
                     <Select
@@ -205,7 +205,7 @@ export default function MessagesPage() {
                         setStatusFilter(v === "ALL" ? "" : v)
                       }
                     >
-                      <SelectTrigger className="w-[130px] h-8">
+                      <SelectTrigger className="w-full sm:w-[130px] h-8">
                         <SelectValue placeholder="Filter" />
                       </SelectTrigger>
                       <SelectContent>
@@ -244,7 +244,7 @@ export default function MessagesPage() {
                         <span className="text-sm flex-1">
                           {m.firstName} {m.lastName}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="hidden sm:inline text-xs text-muted-foreground">
                           {m.phone}
                         </span>
                       </label>
@@ -414,51 +414,53 @@ export default function MessagesPage() {
                   <p>No messages sent yet.</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>To</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Sent At</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history.map((msg) => (
-                      <TableRow key={msg.id}>
-                        <TableCell className="font-mono text-sm">
-                          {msg.to}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate text-sm">
-                          {msg.body}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              msg.status === "sent" || msg.status === "delivered"
-                                ? "bg-green-100 text-green-800"
-                                : msg.status === "failed"
-                                ? "bg-red-100 text-red-800"
-                                : ""
-                            }
-                          >
-                            {msg.status === "sent" ||
-                            msg.status === "delivered" ? (
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                            ) : (
-                              <XCircle className="mr-1 h-3 w-3" />
-                            )}
-                            {msg.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {new Date(msg.sentAt).toLocaleString()}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[500px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>To</TableHead>
+                        <TableHead>Message</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Sent At</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {history.map((msg) => (
+                        <TableRow key={msg.id}>
+                          <TableCell className="font-mono text-sm whitespace-nowrap">
+                            {msg.to}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate text-sm">
+                            {msg.body}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={
+                                msg.status === "sent" || msg.status === "delivered"
+                                  ? "bg-green-100 text-green-800"
+                                  : msg.status === "failed"
+                                  ? "bg-red-100 text-red-800"
+                                  : ""
+                              }
+                            >
+                              {msg.status === "sent" ||
+                              msg.status === "delivered" ? (
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                              ) : (
+                                <XCircle className="mr-1 h-3 w-3" />
+                              )}
+                              {msg.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                            {new Date(msg.sentAt).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

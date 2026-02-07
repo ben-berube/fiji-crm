@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -96,12 +96,24 @@ function getStateColor(count: number, maxCount: number): string {
 }
 
 function USHeatmapComponent({ data }: USHeatmapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [tooltipContent, setTooltipContent] = useState<{
     name: string;
     count: number;
     x: number;
     y: number;
   } | null>(null);
+
+  // Dismiss tooltip when tapping outside the map on mobile
+  useEffect(() => {
+    function handleTouchOutside(e: TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setTooltipContent(null);
+      }
+    }
+    document.addEventListener("touchstart", handleTouchOutside);
+    return () => document.removeEventListener("touchstart", handleTouchOutside);
+  }, []);
 
   // Normalize data: convert abbreviations to full names if needed
   const normalizedData = new Map<string, number>();
@@ -129,7 +141,7 @@ function USHeatmapComponent({ data }: USHeatmapProps) {
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" ref={containerRef}>
       {/* Map */}
       <div className="relative">
         <ComposableMap
@@ -160,6 +172,15 @@ function USHeatmapComponent({ data }: USHeatmapProps) {
                           cursor: "pointer",
                         },
                         pressed: { outline: "none" },
+                      }}
+                      onClick={(evt) => {
+                        // Touch/click support for mobile
+                        const { clientX, clientY } = evt;
+                        setTooltipContent((prev) =>
+                          prev?.name === stateName
+                            ? null
+                            : { name: stateName, count, x: clientX, y: clientY }
+                        );
                       }}
                       onMouseEnter={(evt) => {
                         const { clientX, clientY } = evt;
