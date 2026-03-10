@@ -77,6 +77,7 @@ model Member {
   bio            String?
   embedding      Unsupported("vector(768)")?
   tags           Tag[]
+  pigDinnerTicket PigDinnerTicket?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -104,6 +105,16 @@ model MessageTemplate {
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PigDinnerTicket {
+  id            String   @id @default(cuid())
+  customerName  String
+  customerEmail String   @unique
+  purchaseDate  DateTime
+  memberId      String?  @unique
+  member        Member?  @relation(fields: [memberId], references: [id])
+  createdAt     DateTime @default(now())
 }
 
 enum Role {

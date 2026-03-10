@@ -8,6 +8,7 @@ import {
   Users,
   Search,
   MessageSquare,
+  Ticket,
   Menu,
   X,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/directory", label: "Directory", icon: Users },
   { href: "/chat", label: "AI Search", icon: Search },
   { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/pig-dinner", label: "Pig Dinner", icon: Ticket },
 ];
 
 export function Sidebar() {
