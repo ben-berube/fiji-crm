@@ -24,7 +24,6 @@ import {
   Ticket,
   Upload,
   CalendarClock,
-  Users,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -34,6 +33,7 @@ import {
   Loader2,
   Search,
   Link2,
+  UserPlus,
 } from "lucide-react";
 
 interface MemberInfo {
@@ -57,6 +57,14 @@ interface UnmatchedBuyer {
   purchaseDate: string;
 }
 
+interface AllBuyer {
+  name: string;
+  email: string;
+  purchaseDate: string;
+  matched: boolean;
+  graduationYear: number | null;
+}
+
 interface PigDinnerData {
   stats: {
     ticketsSold: number;
@@ -65,6 +73,7 @@ interface PigDinnerData {
     eventDate: string;
     lastUpdated: string | null;
   };
+  allBuyers: AllBuyer[];
   classByYear: ClassYear[];
   unmatchedBuyers: UnmatchedBuyer[];
 }
@@ -92,6 +101,7 @@ export default function PigDinnerPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [showAllBuyers, setShowAllBuyers] = useState(false);
   const [matchDialogBuyer, setMatchDialogBuyer] = useState<UnmatchedBuyer | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
   const [matchResults, setMatchResults] = useState<DirectoryMember[]>([]);
@@ -223,6 +233,53 @@ export default function PigDinnerPage() {
     }
   }
 
+  async function addAndMatch() {
+    if (!matchDialogBuyer) return;
+    setMatching(true);
+    try {
+      const nameParts = matchDialogBuyer.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || matchDialogBuyer.name;
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const createRes = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: matchDialogBuyer.email,
+          status: "ALUMNI",
+        }),
+      });
+
+      if (!createRes.ok) {
+        const err = await createRes.json();
+        console.error("Create member failed:", err);
+        return;
+      }
+
+      const newMember = await createRes.json();
+
+      const matchRes = await fetch("/api/pig-dinner/match", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticketEmail: matchDialogBuyer.email,
+          memberId: newMember.id,
+        }),
+      });
+
+      if (matchRes.ok) {
+        setMatchDialogBuyer(null);
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Add and match failed:", err);
+    } finally {
+      setMatching(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -232,11 +289,9 @@ export default function PigDinnerPage() {
   }
 
   const stats = data?.stats;
+  const allBuyers = data?.allBuyers ?? [];
   const classByYear = data?.classByYear ?? [];
   const unmatchedBuyers = data?.unmatchedBuyers ?? [];
-
-  const totalTracked = classByYear.reduce((s, c) => s + c.total, 0);
-  const totalWithTicket = classByYear.reduce((s, c) => s + c.ticketCount, 0);
 
   return (
     <div className="space-y-6">
@@ -304,7 +359,7 @@ export default function PigDinnerPage() {
       )}
 
       {/* Stats Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2">
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
@@ -314,34 +369,6 @@ export default function PigDinnerPage() {
               <div>
                 <p className="text-2xl font-bold">{stats?.ticketsSold ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {totalWithTicket} <span className="text-sm font-normal text-muted-foreground">/ {totalTracked}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">Alumni with Tickets</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950">
-                <AlertCircle className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{totalTracked - totalWithTicket}</p>
-                <p className="text-xs text-muted-foreground">Still Need Tickets</p>
               </div>
             </div>
           </CardContent>
@@ -382,6 +409,72 @@ export default function PigDinnerPage() {
               Exported from your ticket vendor (Numbers/Excel format)
             </p>
           </CardContent>
+        </Card>
+      )}
+
+      {/* All Ticket Buyers */}
+      {allBuyers.length > 0 && (
+        <Card>
+          <button
+            onClick={() => setShowAllBuyers((v) => !v)}
+            className="w-full text-left"
+          >
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {showAllBuyers ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <CardTitle className="text-base">
+                    All Ticket Buyers ({allBuyers.length})
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+          </button>
+          {showAllBuyers && (
+            <CardContent className="pt-0 pb-4 px-4">
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Purchase Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allBuyers.map((b, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">{b.name}</TableCell>
+                        <TableCell>
+                          <a href={`mailto:${b.email}`} className="text-primary hover:underline inline-flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {b.email}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          {b.graduationYear ? (
+                            <Badge variant="secondary" className="text-xs">
+                              &apos;{String(b.graduationYear).slice(-2)}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(b.purchaseDate).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
@@ -623,6 +716,24 @@ export default function PigDinnerPage() {
                   )}
                 </button>
               ))}
+            </div>
+            <div className="border-t pt-3">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addAndMatch}
+                disabled={matching}
+              >
+                {matching ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="mr-2 h-4 w-4" />
+                )}
+                Add &ldquo;{matchDialogBuyer?.name}&rdquo; to Directory &amp; Match
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-1.5">
+                Creates a new member with their name and email
+              </p>
             </div>
           </div>
         </DialogContent>

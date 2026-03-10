@@ -58,6 +58,19 @@ export async function GET() {
       };
     });
 
+    const memberById = new Map(members.map((m) => [m.id, m]));
+
+    const allBuyers = tickets.map((t) => {
+      const member = t.memberId ? memberById.get(t.memberId) : null;
+      return {
+        name: t.customerName,
+        email: t.customerEmail,
+        purchaseDate: t.purchaseDate.toISOString(),
+        matched: !!t.memberId,
+        graduationYear: member?.graduationYear ?? t.member?.graduationYear ?? null,
+      };
+    });
+
     const unmatchedBuyers = tickets
       .filter((t) => !t.memberId)
       .map((t) => ({
@@ -74,6 +87,7 @@ export async function GET() {
         eventDate: EVENT_DATE.toISOString(),
         lastUpdated,
       },
+      allBuyers,
       classByYear,
       unmatchedBuyers,
     });
