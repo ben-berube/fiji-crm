@@ -87,13 +87,13 @@ export async function POST(req: NextRequest) {
         error instanceof Error ? error.message : "Unknown error";
       console.error(`SMS send failed for ${phone}:`, errorMessage);
 
-      // Log failure
       try {
         await prisma.messageLog.create({
           data: {
             to: phone,
             body: trimmedBody,
             status: "failed",
+            error: errorMessage,
             sentBy: "system",
           },
         });

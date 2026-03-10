@@ -30,7 +30,7 @@ import {
 // Dynamic import for the map component (SSR disabled - uses browser APIs)
 const USHeatmap = dynamic(
   () => import("@/components/ui/us-heatmap").then((mod) => mod.USHeatmap),
-  { 
+  {
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-64">
@@ -47,6 +47,7 @@ interface DashboardData {
     alumni: number;
     inactive: number;
   };
+  industries: { name: string; count: number }[];
   companies: { name: string; count: number }[];
   states: { name: string; count: number }[];
   recentMembers: {
@@ -204,22 +205,22 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row - Industry (primary) + Status */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Company Distribution */}
+        {/* Industry Distribution - PRIMARY chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Top Companies</CardTitle>
+            <CardTitle className="text-lg">Industry Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            {data.companies.length === 0 ? (
+            {data.industries.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
-                No company data yet
+                No industry data yet
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={data.companies}
+                  data={data.industries}
                   layout="vertical"
                   margin={{ left: isMobile ? 0 : 20, right: 10, top: 5, bottom: 5 }}
                 >
@@ -227,7 +228,7 @@ export default function DashboardPage() {
                   <YAxis
                     dataKey="name"
                     type="category"
-                    width={isMobile ? 80 : 120}
+                    width={isMobile ? 80 : 140}
                     tick={{ fontSize: isMobile ? 10 : 12 }}
                   />
                   <Tooltip />
@@ -294,7 +295,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Bottom Row */}
+      {/* Middle Row - Map + Companies */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Geographic Distribution - US Heatmap */}
         <Card>
@@ -312,60 +313,100 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Members */}
+        {/* Top Companies - secondary to industry */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Recent Additions</CardTitle>
-              <Link href="/directory">
-                <Button variant="ghost" size="sm">
-                  View All
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+            <CardTitle className="text-lg">Top Companies</CardTitle>
           </CardHeader>
           <CardContent>
-            {data.recentMembers.length === 0 ? (
+            {data.companies.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
-                No members yet
+                No company data yet
               </p>
             ) : (
               <div className="space-y-3">
-                {data.recentMembers.map((m) => (
-                  <Link
-                    key={m.id}
-                    href={`/directory/${m.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">
-                        {m.firstName} {m.lastName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Added{" "}
-                        {new Date(m.createdAt).toLocaleDateString()}
-                      </p>
+                {data.companies.map((c, i) => (
+                  <div key={c.name} className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-muted-foreground w-5 text-right">
+                      {i + 1}.
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium truncate">{c.name}</span>
+                        <Badge variant="secondary" className="shrink-0">
+                          {c.count}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary/60"
+                          style={{
+                            width: `${Math.max(10, (c.count / (data.companies[0]?.count || 1)) * 100)}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className={
-                        m.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800"
-                          : m.status === "ALUMNI"
-                          ? "bg-fiji-gold/20 text-fiji-purple-dark"
-                          : "bg-gray-100 text-gray-600"
-                      }
-                    >
-                      {m.status.charAt(0) + m.status.slice(1).toLowerCase()}
-                    </Badge>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Bottom Row - Recent Members */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Recent Additions</CardTitle>
+            <Link href="/directory">
+              <Button variant="ghost" size="sm">
+                View All
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {data.recentMembers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No members yet
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {data.recentMembers.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/directory/${m.id}`}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+                >
+                  <div>
+                    <p className="font-medium text-sm">
+                      {m.firstName} {m.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Added{" "}
+                      {new Date(m.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={
+                      m.status === "ACTIVE"
+                        ? "bg-green-100 text-green-800"
+                        : m.status === "ALUMNI"
+                        ? "bg-fiji-gold/20 text-fiji-purple-dark"
+                        : "bg-gray-100 text-gray-600"
+                    }
+                  >
+                    {m.status.charAt(0) + m.status.slice(1).toLowerCase()}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

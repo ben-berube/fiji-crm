@@ -3,17 +3,8 @@ import { prisma } from "@/lib/db";
 
 export const maxDuration = 60;
 
-// ---------- AI Provider Setup ----------
+// ---------- Gemini Chat Streaming ----------
 
-type AIProvider = "openai" | "gemini" | "none";
-
-function getActiveProvider(): AIProvider {
-  if (process.env.GEMINI_API_KEY) return "gemini";
-  if (process.env.OPENAI_API_KEY) return "openai";
-  return "none";
-}
-
-// Stream chat using Gemini
 async function* streamWithGemini(
   systemPrompt: string,
   history: Array<{ role: string; content: string }>,
@@ -40,82 +31,84 @@ async function* streamWithGemini(
   }
 }
 
-// Stream chat using OpenAI
-async function* streamWithOpenAI(
-  systemPrompt: string,
-  history: Array<{ role: string; content: string }>,
-  message: string
-): AsyncGenerator<string> {
-  const OpenAI = (await import("openai")).default;
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: systemPrompt },
-  ];
-
-  for (const h of history.slice(-20)) {
-    if (h.role === "user" || h.role === "assistant") {
-      messages.push({ role: h.role, content: h.content });
-    }
-  }
-  messages.push({ role: "user", content: message });
-
-  const stream = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages,
-    stream: true,
-    max_tokens: 1024,
-    temperature: 0.7,
-  });
-
-  for await (const chunk of stream) {
-    const text = chunk.choices[0]?.delta?.content;
-    if (text) yield text;
-  }
-}
-
 // ---------- Member Search ----------
 
-async function searchMembers(query: string) {
-  try {
-    // Try semantic search if embeddings exist and Gemini is available
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const embeddingCount = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
-          `SELECT COUNT(*) as count FROM "Member" WHERE embedding IS NOT NULL`
-        );
-        if (Number(embeddingCount[0]?.count || 0) > 0) {
-          const { generateEmbedding } = await import("@/lib/gemini");
-          const embedding = await generateEmbedding(query);
-          const embeddingStr = `[${embedding.join(",")}]`;
-
-          const results = await prisma.$queryRawUnsafe(
-            `SELECT m.id, m."firstName", m."lastName", m.email, m.phone, m.city, m.state,
-                    m."graduationYear", m.major, m.status, m.company, m."jobTitle", m.industry, m.bio
-             FROM "Member" m WHERE m.embedding IS NOT NULL
-             ORDER BY m.embedding <=> $1::vector LIMIT 10`,
-            embeddingStr
-          );
-          if (Array.isArray(results) && results.length > 0) return results;
-        }
-      } catch (e) {
-        console.warn("Semantic search failed, falling back to text:", e);
-      }
-    }
-  } catch {
-    // Fall through to text search
-  }
-
-  // Text search fallback (always works)
-  return textSearchMembers(query);
+interface MemberResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  city?: string | null;
+  state?: string | null;
+  graduationYear?: number | null;
+  major?: string | null;
+  status?: string | null;
+  company?: string | null;
+  jobTitle?: string | null;
+  industry?: string | null;
+  bio?: string | null;
+  tags?: { name: string }[];
 }
 
-async function textSearchMembers(query: string) {
+async function searchMembers(query: string): Promise<MemberResult[]> {
+  const [textResults, semanticResults] = await Promise.all([
+    textSearchMembers(query),
+    semanticSearchMembers(query),
+  ]);
+
+  const seen = new Set<string>();
+  const merged: MemberResult[] = [];
+
+  for (const m of textResults) {
+    if (!seen.has(m.id)) {
+      seen.add(m.id);
+      merged.push(m);
+    }
+  }
+  for (const m of semanticResults) {
+    if (!seen.has(m.id)) {
+      seen.add(m.id);
+      merged.push(m);
+    }
+  }
+
+  return merged.slice(0, 15);
+}
+
+async function semanticSearchMembers(query: string): Promise<MemberResult[]> {
+  if (!process.env.GEMINI_API_KEY) return [];
+
+  try {
+    const embeddingCount = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+      `SELECT COUNT(*) as count FROM "Member" WHERE embedding IS NOT NULL`
+    );
+    if (Number(embeddingCount[0]?.count || 0) === 0) return [];
+
+    const { generateEmbedding } = await import("@/lib/gemini");
+    const embedding = await generateEmbedding(query);
+    const embeddingStr = `[${embedding.join(",")}]`;
+
+    const results = await prisma.$queryRawUnsafe<MemberResult[]>(
+      `SELECT m.id, m."firstName", m."lastName", m.email, m.phone, m.city, m.state,
+              m."graduationYear", m.major, m.status, m.company, m."jobTitle", m.industry, m.bio
+       FROM "Member" m WHERE m.embedding IS NOT NULL
+       ORDER BY m.embedding <=> $1::vector LIMIT 10`,
+      embeddingStr
+    );
+    return Array.isArray(results) ? results : [];
+  } catch (e) {
+    console.warn("Semantic search failed:", e);
+    return [];
+  }
+}
+
+async function textSearchMembers(query: string): Promise<MemberResult[]> {
   try {
     const words = query
       .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length > 2);
+      .filter((w) => w.length > 2).map((w) => w.replace(/[^a-z0-9]/g, "")).filter((w) => w.length > 2);
 
     if (words.length === 0) {
       return prisma.member.findMany({
@@ -184,7 +177,6 @@ function formatMemberContext(members: Array<Record<string, unknown>>): string {
 // ---------- Main Handler ----------
 
 export async function POST(req: NextRequest) {
-  // Parse request
   let message: string;
   let history: Array<{ role: string; content: string }>;
   try {
@@ -199,18 +191,19 @@ export async function POST(req: NextRequest) {
     return jsonResponse({ error: "Message is required" }, 400);
   }
 
-  const provider = getActiveProvider();
-  if (provider === "none") {
+  if (!process.env.GEMINI_API_KEY) {
     return jsonResponse(
-      { error: "No AI provider configured. Please set GEMINI_API_KEY or OPENAI_API_KEY." },
+      {
+        error: "Gemini API key is not configured. Please set GEMINI_API_KEY in Vercel Environment Variables.",
+        code: "NO_PROVIDER",
+      },
       503
     );
   }
 
   try {
-    // Search for members
     const members = await searchMembers(message.trim());
-    const context = formatMemberContext(members as Array<Record<string, unknown>>);
+    const context = formatMemberContext(members as unknown as Array<Record<string, unknown>>);
 
     let totalCount = 0;
     try {
@@ -234,38 +227,11 @@ Guidelines:
 - Never make up information about brothers that isn't in the data
 - Keep responses concise but informative`;
 
-    // Try primary provider, fall back to the other
-    let streamGen: AsyncGenerator<string>;
-    try {
-      streamGen =
-        provider === "gemini"
-          ? streamWithGemini(systemPrompt, history, message)
-          : streamWithOpenAI(systemPrompt, history, message);
-    } catch (primaryError) {
-      console.error(`Primary provider (${provider}) failed:`, primaryError);
-      // Try the other provider as fallback
-      const fallback = provider === "gemini" ? "openai" : "gemini";
-      const fallbackKey =
-        fallback === "gemini"
-          ? process.env.GEMINI_API_KEY
-          : process.env.OPENAI_API_KEY;
-
-      if (fallbackKey) {
-        console.log(`Falling back to ${fallback}`);
-        streamGen =
-          fallback === "gemini"
-            ? streamWithGemini(systemPrompt, history, message)
-            : streamWithOpenAI(systemPrompt, history, message);
-      } else {
-        throw primaryError;
-      }
-    }
-
-    // Convert to SSE
     const encoder = new TextEncoder();
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
+          const streamGen = streamWithGemini(systemPrompt, history, message);
           for await (const text of streamGen) {
             if (text) {
               controller.enqueue(
@@ -275,23 +241,24 @@ Guidelines:
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (streamError) {
-          console.error("Stream error:", streamError);
           const errorMsg =
-            streamError instanceof Error
-              ? streamError.message
-              : "An unexpected error occurred";
+            streamError instanceof Error ? streamError.message : String(streamError);
+          console.error("Gemini stream error:", errorMsg);
 
-          // Provide user-friendly error messages
-          let userMessage = `Sorry, I encountered an error. Please try again.`;
+          let userMessage: string;
           if (errorMsg.includes("quota") || errorMsg.includes("429")) {
-            userMessage = `The AI service is temporarily at capacity. Please try again in a moment.`;
-          } else if (errorMsg.includes("API key") || errorMsg.includes("auth")) {
-            userMessage = `The AI service is not properly configured. Please contact an administrator.`;
+            userMessage = "The AI service is temporarily at capacity. Please wait a moment and try again.";
+          } else if (errorMsg.includes("API key") || errorMsg.includes("API_KEY_INVALID")) {
+            userMessage = "The AI service is not properly configured. Please check that GEMINI_API_KEY is set correctly.";
+          } else if (errorMsg.includes("SAFETY")) {
+            userMessage = "The AI service could not process that request due to content safety filters. Please try rephrasing.";
+          } else {
+            userMessage = "Sorry, I encountered an error processing your request.";
           }
 
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ text: `\n\n${userMessage}` })}\n\n`
+              `data: ${JSON.stringify({ text: `\n\n${userMessage}\n\n[Debug: ${errorMsg}]` })}\n\n`
             )
           );
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -310,7 +277,7 @@ Guidelines:
   } catch (error) {
     console.error("Chat error:", error);
     const msg = error instanceof Error ? error.message : "Unexpected error";
-    return jsonResponse({ error: "Chat failed", details: msg }, 500);
+    return jsonResponse({ error: "Chat failed", details: msg, code: "CHAT_ERROR" }, 500);
   }
 }
 

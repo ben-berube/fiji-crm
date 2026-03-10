@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateEmbedding } from "@/lib/openai";
+import { generateEmbedding } from "@/lib/gemini";
 
 // POST /api/search - Semantic search across members
 export async function POST(req: NextRequest) {

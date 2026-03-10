@@ -52,6 +52,7 @@ interface MessageLogEntry {
   to: string;
   body: string;
   status: string;
+  error: string | null;
   sentAt: string;
 }
 
@@ -434,24 +435,32 @@ export default function MessagesPage() {
                             {msg.body}
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={
-                                msg.status === "sent" || msg.status === "delivered"
-                                  ? "bg-green-100 text-green-800"
-                                  : msg.status === "failed"
-                                  ? "bg-red-100 text-red-800"
-                                  : ""
-                              }
-                            >
-                              {msg.status === "sent" ||
-                              msg.status === "delivered" ? (
-                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                              ) : (
-                                <XCircle className="mr-1 h-3 w-3" />
+                            <div className="space-y-1">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  msg.status === "sent" || msg.status === "delivered" || msg.status === "queued"
+                                    ? "bg-green-100 text-green-800"
+                                    : msg.status === "failed"
+                                    ? "bg-red-100 text-red-800"
+                                    : ""
+                                }
+                              >
+                                {msg.status === "sent" ||
+                                msg.status === "delivered" ||
+                                msg.status === "queued" ? (
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                ) : (
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                )}
+                                {msg.status}
+                              </Badge>
+                              {msg.error && (
+                                <p className="text-xs text-red-600 max-w-[200px] truncate" title={msg.error}>
+                                  {msg.error}
+                                </p>
                               )}
-                              {msg.status}
-                            </Badge>
+                            </div>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                             {new Date(msg.sentAt).toLocaleString()}

@@ -8,6 +8,7 @@ export async function GET() {
     activeMembers,
     alumniMembers,
     inactiveMembers,
+    industries,
     companies,
     states,
     recentMembers,
@@ -17,6 +18,18 @@ export async function GET() {
     prisma.member.count({ where: { status: "ACTIVE" } }),
     prisma.member.count({ where: { status: "ALUMNI" } }),
     prisma.member.count({ where: { status: "INACTIVE" } }),
+    prisma.member.groupBy({
+      by: ["industry"],
+      where: {
+        AND: [
+          { industry: { not: null } },
+          { industry: { not: "N/A" } },
+        ],
+      },
+      _count: { industry: true },
+      orderBy: { _count: { industry: "desc" } },
+      take: 10,
+    }),
     prisma.member.groupBy({
       by: ["company"],
       where: { company: { not: null } },
@@ -29,7 +42,6 @@ export async function GET() {
       where: { state: { not: null } },
       _count: { state: true },
       orderBy: { _count: { state: "desc" } },
-      // No limit - return all states for heatmap
     }),
     prisma.member.findMany({
       select: {
@@ -52,6 +64,10 @@ export async function GET() {
       alumni: alumniMembers,
       inactive: inactiveMembers,
     },
+    industries: industries.map((i: { industry: string | null; _count: { industry: number } }) => ({
+      name: i.industry ?? "Unknown",
+      count: i._count.industry,
+    })),
     companies: companies.map((i: { company: string | null; _count: { company: number } }) => ({
       name: i.company ?? "Unknown",
       count: i._count.company,
