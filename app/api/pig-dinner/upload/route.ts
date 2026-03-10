@@ -43,8 +43,16 @@ export async function POST(req: NextRequest) {
       ])
     );
 
+    const existingTickets = await prisma.pigDinnerTicket.findMany({
+      select: { customerEmail: true, memberId: true },
+    });
+    const existingByEmail = new Map(
+      existingTickets.map((t) => [t.customerEmail.toLowerCase(), t])
+    );
+
     let matched = 0;
     let unmatched = 0;
+    let newTickets = 0;
     const unmatchedNames: string[] = [];
 
     for (const row of rows) {
@@ -64,12 +72,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (memberId) {
+      const existing = existingByEmail.get(email);
+      const preservedMemberId = existing?.memberId ?? null;
+      const finalMemberId = memberId ?? preservedMemberId;
+
+      if (finalMemberId) {
         matched++;
       } else {
         unmatched++;
         unmatchedNames.push(name);
       }
+
+      if (!existing) newTickets++;
 
       await prisma.pigDinnerTicket.upsert({
         where: { customerEmail: email },
@@ -77,18 +91,19 @@ export async function POST(req: NextRequest) {
           customerName: name,
           customerEmail: email,
           purchaseDate: row.date,
-          memberId,
+          memberId: finalMemberId,
         },
         update: {
           customerName: name,
           purchaseDate: row.date,
-          memberId,
+          ...(memberId ? { memberId } : {}),
         },
       });
     }
 
     return NextResponse.json({
       total: rows.length,
+      newTickets,
       matched,
       unmatched,
       unmatchedNames,

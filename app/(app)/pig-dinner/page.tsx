@@ -71,6 +71,7 @@ interface PigDinnerData {
 
 interface UploadResult {
   total: number;
+  newTickets?: number;
   matched: number;
   unmatched: number;
   unmatchedNames: string[];
@@ -281,7 +282,7 @@ export default function PigDinnerPage() {
                 <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                 <div className="text-sm">
                   <p className="font-medium text-green-800 dark:text-green-200">
-                    Imported {uploadResult.total} tickets &mdash; {uploadResult.matched} matched to members, {uploadResult.unmatched} unmatched
+                    Processed {uploadResult.total} tickets{uploadResult.newTickets ? ` (${uploadResult.newTickets} new)` : ""} &mdash; {uploadResult.matched} matched, {uploadResult.unmatched} unmatched
                   </p>
                   {uploadResult.unmatchedNames.length > 0 && (
                     <p className="text-green-700 dark:text-green-300 mt-1">
