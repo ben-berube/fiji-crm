@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -24,6 +32,8 @@ import {
   Phone,
   Mail,
   Loader2,
+  Search,
+  Link2,
 } from "lucide-react";
 
 interface MemberInfo {
@@ -66,6 +76,14 @@ interface UploadResult {
   unmatchedNames: string[];
 }
 
+interface DirectoryMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  graduationYear: number | null;
+}
+
 export default function PigDinnerPage() {
   const [data, setData] = useState<PigDinnerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +91,13 @@ export default function PigDinnerPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [matchDialogBuyer, setMatchDialogBuyer] = useState<UnmatchedBuyer | null>(null);
+  const [matchSearch, setMatchSearch] = useState("");
+  const [matchResults, setMatchResults] = useState<DirectoryMember[]>([]);
+  const [matchSearching, setMatchSearching] = useState(false);
+  const [matching, setMatching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const matchSearchTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -138,6 +162,64 @@ export default function PigDinnerPage() {
       else next.add(year);
       return next;
     });
+  }
+
+  function openMatchDialog(buyer: UnmatchedBuyer) {
+    setMatchDialogBuyer(buyer);
+    setMatchSearch(buyer.name);
+    setMatchResults([]);
+    searchDirectory(buyer.name);
+  }
+
+  function searchDirectory(query: string) {
+    if (matchSearchTimer.current) clearTimeout(matchSearchTimer.current);
+    if (query.trim().length < 2) {
+      setMatchResults([]);
+      return;
+    }
+    setMatchSearching(true);
+    matchSearchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/members?search=${encodeURIComponent(query.trim())}&limit=10`);
+        if (res.ok) {
+          const json = await res.json();
+          const members = json.members ?? json;
+          setMatchResults(Array.isArray(members) ? members : []);
+        }
+      } catch {
+        setMatchResults([]);
+      } finally {
+        setMatchSearching(false);
+      }
+    }, 250);
+  }
+
+  function onMatchSearchChange(value: string) {
+    setMatchSearch(value);
+    searchDirectory(value);
+  }
+
+  async function confirmMatch(memberId: string) {
+    if (!matchDialogBuyer) return;
+    setMatching(true);
+    try {
+      const res = await fetch("/api/pig-dinner/match", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticketEmail: matchDialogBuyer.email,
+          memberId,
+        }),
+      });
+      if (res.ok) {
+        setMatchDialogBuyer(null);
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Match failed:", err);
+    } finally {
+      setMatching(false);
+    }
   }
 
   if (loading) {
@@ -447,7 +529,7 @@ export default function PigDinnerPage() {
               Unmatched Ticket Buyers ({unmatchedBuyers.length})
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              These people bought tickets but couldn&apos;t be matched to a CRM member. They may have used a different email or aren&apos;t in the directory yet.
+              These people bought tickets but couldn&apos;t be matched to a CRM member. Click &ldquo;Match&rdquo; to link them to a directory entry.
             </p>
           </CardHeader>
           <CardContent>
@@ -457,6 +539,7 @@ export default function PigDinnerPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Purchase Date</TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -467,6 +550,16 @@ export default function PigDinnerPage() {
                     <TableCell className="text-muted-foreground">
                       {new Date(b.purchaseDate).toLocaleDateString()}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openMatchDialog(b)}
+                      >
+                        <Link2 className="mr-1.5 h-3 w-3" />
+                        Match
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -474,6 +567,65 @@ export default function PigDinnerPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Match Dialog */}
+      <Dialog
+        open={!!matchDialogBuyer}
+        onOpenChange={(open) => { if (!open) setMatchDialogBuyer(null); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Match Ticket Buyer</DialogTitle>
+            <DialogDescription>
+              Link <span className="font-medium text-foreground">{matchDialogBuyer?.name}</span> ({matchDialogBuyer?.email}) to a member in the directory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={matchSearch}
+                onChange={(e) => onMatchSearchChange(e.target.value)}
+                className="pl-9"
+                autoFocus
+              />
+            </div>
+            <div className="max-h-[280px] overflow-y-auto rounded-lg border">
+              {matchSearching && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {!matchSearching && matchResults.length === 0 && matchSearch.trim().length >= 2 && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No members found
+                </p>
+              )}
+              {!matchSearching && matchResults.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => confirmMatch(m.id)}
+                  disabled={matching}
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors border-b last:border-b-0 disabled:opacity-50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {m.firstName} {m.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                  </div>
+                  {m.graduationYear && (
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      &apos;{String(m.graduationYear).slice(-2)}
+                    </Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Last Updated */}
       {stats?.lastUpdated && (
